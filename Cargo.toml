@@ -1,0 +1,13 @@
+[workspace.package]
+name = "hermes"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.dependencies]
+pinocchio = "0.8.2"
+pinocchio-pubkey = "0.2.4"
+pinocchio-system = "0.2.3"
