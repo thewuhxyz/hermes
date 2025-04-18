@@ -1,5 +1,13 @@
+mod add_authority;
+pub use add_authority::*;
+
 mod initialize_registry;
 pub use initialize_registry::*;
+
+mod initialize_new_world;
+pub use initialize_new_world::*;
+
+
 
 use pinocchio::program_error::ProgramError;
 
@@ -25,6 +33,14 @@ impl TryFrom<&u64> for WorldInstruction {
     fn try_from(byte: &u64) -> Result<Self, Self::Error> {
         match byte {
             1000 => Ok(WorldInstruction::InitializeRegistry),
+            1001 => Ok(WorldInstruction::InitializeNewWorld),
+            1002 => Ok(WorldInstruction::AddAuthority),
+            1003 => Ok(WorldInstruction::RemoveAuthority),
+            1004 => Ok(WorldInstruction::ApproveSystem),
+            1005 => Ok(WorldInstruction::RemoveSystem),
+            1006 => Ok(WorldInstruction::AddEntity),
+            1007 => Ok(WorldInstruction::InitilizeComponent),
+            1008 => Ok(WorldInstruction::Apply),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

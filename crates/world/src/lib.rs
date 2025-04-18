@@ -21,14 +21,14 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let (instruction_bytes, _data) = instruction_data.split_at(DISCRIMATOR_LENGTH);
+    let (instruction_bytes, data) = instruction_data.split_at(DISCRIMATOR_LENGTH);
 
     let instruction = unsafe { &*(instruction_bytes.as_ptr() as *const _ as *const u64) };
-    // let so = INITIALIZE_REGISTRY_DISCRIMINATOR.as_slice();
-    
 
     match get_instruction(instruction)? {
         WorldInstruction::InitializeRegistry => initialize_registry(accounts),
+        WorldInstruction::InitializeNewWorld => initialize_new_world(accounts),
+        WorldInstruction::AddAuthority => add_authority(accounts, data),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

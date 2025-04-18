@@ -1,6 +1,28 @@
-use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{
+    program_error::ProgramError,
+    pubkey::{find_program_address, Pubkey},
+};
 
-use super::transmutable::{Transmutable, TransmutableMut};
+use super::{
+    into_bytes::IntoBytes,
+    transmutable::{Transmutable, TransmutableMut},
+};
+
+pub const WORLD_DISCRIMINATOR: u64 = 0;
+
+pub const NEW_WORLD_SIZE: usize = 8 + 8 + 8 + 4 + 1 + 4;
+
+pub fn world_seed() -> &'static [u8] {
+    b"world"
+}
+
+pub fn world_size() -> usize {
+    16 + 8 + 1 + 8
+}
+
+pub fn world_pda(id: &u64) -> (Pubkey, u8) {
+    find_program_address(&[world_seed(), &id.to_be_bytes()], &crate::ID)
+}
 
 #[repr(C)]
 pub struct WorldMetadata {
@@ -15,6 +37,24 @@ impl TransmutableMut for WorldMetadata {}
 
 impl Transmutable for WorldMetadata {
     const LEN: usize = core::mem::size_of::<WorldMetadata>();
+}
+
+impl IntoBytes for WorldMetadata {
+    fn into_bytes(&self) -> Result<&[u8], ProgramError> {
+        let bytes =
+            unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, Self::LEN) };
+        Ok(bytes)
+    }
+}
+
+impl Default for WorldMetadata {
+    fn default() -> Self {
+        Self {
+            discriminator: WORLD_DISCRIMINATOR,
+            entities: 0,
+            id: 0,
+        }
+    }
 }
 
 pub struct World<'a> {
@@ -104,5 +144,17 @@ impl<'a> WorldMut<'a> {
         };
 
         Ok(world)
+    }
+
+    pub fn init_new_world(account_data: &'a mut [u8]) -> Result<(), ProgramError> {
+        let (world_metadata_bytes, authorities_bytes) =
+            account_data.split_at_mut(WorldMetadata::LEN);
+        world_metadata_bytes.copy_from_slice(WorldMetadata::default().into_bytes()?);
+
+        let permissionless_offset = core::mem::size_of::<u32>();
+
+        authorities_bytes[permissionless_offset] = 1; // set permissionless: true
+
+        Ok(())
     }
 }
