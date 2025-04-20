@@ -1,40 +1,44 @@
+use crate::state::world::WorldMutate;
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
     sysvars::{rent::Rent, Sysvar},
     ProgramResult,
 };
-use pinocchio_system::instructions::CreateAccount;
 
-use crate::state::{
-    registry::{registry_signer, Registry},
-    transmutable::TransmutableMut,
-    world::{world_pda, WorldMut, NEW_WORLD_SIZE},
-};
-
-pub fn add_authority(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult {
-    let [payer, world, registry, _system_program] = accounts else {
+pub fn add_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
+    let [authority, new_authority, world_acct, _system_program] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let reg = unsafe { Registry::load_mut_unchecked(registry.borrow_mut_data_unchecked())? };
+    let _world_id: &u64 = unsafe { &*(data.as_ptr().read_unaligned() as *const u64) };
 
-    let (_, bump) = world_pda(&reg.worlds);
+    let mut world = unsafe { WorldMutate::from_bytes(world_acct.borrow_mut_data_unchecked())? };
 
-    let lamports_needed = Rent::get()?.minimum_balance(NEW_WORLD_SIZE);
+    let authorities = world.authorities()?;
 
-    CreateAccount {
-        from: payer,
-        to: world,
-        lamports: lamports_needed,
-        space: NEW_WORLD_SIZE as u64,
-        owner: &crate::ID,
+    if authorities.is_empty()
+        || (authorities.contains(authority.key()) && !authorities.contains(new_authority.key()))
+    {
+        world.add_new_authority(new_authority.key())?;
+
+        let world_size = world.size()?;
+        let rent = Rent::get()?;
+        let new_minimum_balance = rent.minimum_balance(world_size);
+
+        let lamports_diff = new_minimum_balance.saturating_sub(world_acct.lamports());
+
+        if lamports_diff > 0 {
+            pinocchio_system::instructions::Transfer {
+                lamports: lamports_diff,
+                from: authority,
+                to: world_acct,
+            }
+            .invoke()?;
+        }
+
+        world_acct.realloc(world_size, false)?;
     }
-    .invoke_signed(&[registry_signer(&[bump]).as_slice().into()])?;
-
-    WorldMut::init_new_world(unsafe { world.borrow_mut_data_unchecked() })?;
-
-    reg.worlds += 1;
 
     Ok(())
 }

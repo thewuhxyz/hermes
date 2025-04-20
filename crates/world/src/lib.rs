@@ -1,4 +1,4 @@
-#![no_std]
+// #![no_std]
 #![allow(unexpected_cfgs)]
 
 mod consts;
@@ -29,6 +29,7 @@ pub fn process_instruction(
         WorldInstruction::InitializeRegistry => initialize_registry(accounts),
         WorldInstruction::InitializeNewWorld => initialize_new_world(accounts),
         WorldInstruction::AddAuthority => add_authority(accounts, data),
+        WorldInstruction::ApproveSystem => approve_system(accounts),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

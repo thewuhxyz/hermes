@@ -9,7 +9,7 @@ use pinocchio_system::instructions::CreateAccount;
 use crate::state::{
     registry::{registry_signer, Registry},
     transmutable::TransmutableMut,
-    world::{world_pda, WorldMut, NEW_WORLD_SIZE},
+    world::{world_pda, WorldMutate, NEW_WORLD_SIZE},
 };
 
 pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
@@ -32,7 +32,7 @@ pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
     }
     .invoke_signed(&[registry_signer(&[bump]).as_slice().into()])?;
 
-    WorldMut::init_new_world(unsafe { world.borrow_mut_data_unchecked() })?;
+    WorldMutate::init_new_world(unsafe { world.borrow_mut_data_unchecked() })?;
 
     reg.worlds += 1;
 

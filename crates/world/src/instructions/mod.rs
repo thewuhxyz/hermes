@@ -1,6 +1,9 @@
 mod add_authority;
 pub use add_authority::*;
 
+mod approve_system;
+pub use approve_system::*;
+
 mod initialize_registry;
 pub use initialize_registry::*;
 

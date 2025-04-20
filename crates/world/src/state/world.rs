@@ -1,12 +1,13 @@
-use pinocchio::{
-    program_error::ProgramError,
-    pubkey::{find_program_address, Pubkey},
-};
-
 use super::{
     into_bytes::IntoBytes,
     transmutable::{Transmutable, TransmutableMut},
 };
+use pinocchio::{
+    memory::sol_memmove,
+    program_error::ProgramError,
+    pubkey::{find_program_address, Pubkey},
+};
+use std::collections::BTreeSet;
 
 pub const WORLD_DISCRIMINATOR: u64 = 0;
 
@@ -100,61 +101,181 @@ impl<'a> World<'a> {
     }
 }
 
-pub struct WorldMut<'a> {
+pub struct WorldMutate<'a> {
     pub world_metadata: &'a mut WorldMetadata,
-    pub authorities_len: u32,
-    pub authorities: &'a mut [Pubkey],
-    pub permissionless: &'a mut bool,
-    pub systems_len: u32,
-    pub systems: &'a mut [u8],
+    pub world_data: &'a mut [u8],
 }
 
-impl<'a> WorldMut<'a> {
+impl<'a> WorldMutate<'a> {
     pub fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, ProgramError> {
         let world = unsafe {
-            let (world_metadata_bytes, rest) = bytes.split_at_mut(WorldMetadata::LEN);
+            let (world_metadata_bytes, world_data) = bytes.split_at_mut(WorldMetadata::LEN);
             let world_metadata = WorldMetadata::load_mut_unchecked(world_metadata_bytes)?;
-
-            let authorities_len_ptr =
-                &rest.as_mut_ptr().add(WorldMetadata::LEN) as *const _ as *const u32;
-
-            //  aligned up to this point, shouldn't error
-            let authorities_len = authorities_len_ptr.read();
-            let authorities_ptr = authorities_len_ptr.add(1) as *const _ as *mut Pubkey;
-
-            let permissionless_ptr =
-                authorities_ptr.add(authorities_len as usize) as *const _ as *mut bool;
-
-            let systems_len_ptr = permissionless_ptr.add(1) as *const _ as *mut u32;
-            let systems_len = systems_len_ptr.read_unaligned();
-
-            let systems_ptr = systems_len_ptr.add(1) as *const _ as *mut u8;
 
             Self {
                 world_metadata,
-                authorities: core::slice::from_raw_parts_mut(
-                    authorities_ptr,
-                    authorities_len as usize,
-                ),
-                authorities_len,
-                permissionless: &mut *permissionless_ptr,
-                systems_len,
-                systems: core::slice::from_raw_parts_mut(systems_ptr, systems_len as usize),
+                world_data,
             }
         };
 
         Ok(world)
     }
 
-    pub fn init_new_world(account_data: &'a mut [u8]) -> Result<(), ProgramError> {
-        let (world_metadata_bytes, authorities_bytes) =
-            account_data.split_at_mut(WorldMetadata::LEN);
-        world_metadata_bytes.copy_from_slice(WorldMetadata::default().into_bytes()?);
+    pub fn init_new_world(account_data: &'a mut [u8]) -> Result<Self, ProgramError> {
+        let (world_metadata_bytes, world_data) = account_data.split_at_mut(WorldMetadata::LEN);
 
-        let permissionless_offset = core::mem::size_of::<u32>();
+        let world_metadata = unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
+        *world_metadata = WorldMetadata::default();
 
-        authorities_bytes[permissionless_offset] = 1; // set permissionless: true
+        let mut world = Self {
+            world_data,
+            world_metadata,
+        };
+
+        *world.is_permissionless()? = true;
+
+        Ok(world)
+    }
+
+    pub fn add_new_authority(&mut self, authority: &Pubkey) -> Result<(), ProgramError> {
+        let data_ptr = self.world_data as *mut _ as *mut u8;
+        let offset = self.authority_size()?;
+
+        unsafe {
+            let new_authority_ptr = data_ptr.add(offset) as *mut Pubkey;
+            let permissionles_ptr = new_authority_ptr.add(1) as *mut u8;
+            sol_memmove(
+                permissionles_ptr,
+                new_authority_ptr as *mut u8,
+                self.permissionless_len()? + self.systems_size()?,
+            );
+            *new_authority_ptr = *authority;
+        };
+
+        let authorities_len = self.authorities_len()?;
+
+        *authorities_len += 1;
 
         Ok(())
     }
+
+    pub fn authorities_len(&mut self) -> Result<&mut u32, ProgramError> {
+        Ok(unsafe { &mut *(self.world_data.as_mut_ptr() as *mut u32) })
+    }
+
+    pub fn permissionless_len(&mut self) -> Result<usize, ProgramError> {
+        Ok(1)
+    }
+
+    pub fn permissionless(&mut self) -> Result<&mut u8, ProgramError> {
+        let byte = &mut self.world_data[self.authority_size()?];
+        Ok(byte)
+    }
+
+    pub fn is_permissionless(&mut self) -> Result<&mut bool, ProgramError> {
+        let byte = self.permissionless()?;
+        match byte {
+            0 | 1 => {
+                let ptr = byte as *mut u8 as *mut bool;
+                Ok(unsafe { &mut *ptr })
+            }
+            _ => Err(ProgramError::InvalidAccountData),
+        }
+    }
+
+    pub fn authority_size(&mut self) -> Result<usize, ProgramError> {
+        let authorities_len = *self.authorities_len()?;
+        Ok(authorities_size(authorities_len))
+    }
+
+    pub fn authorities(&mut self) -> Result<&[Pubkey], ProgramError> {
+        let authorities_len = *self.authorities_len()?;
+        let authorities = unsafe {
+            let authorities_ptr = self.world_data.as_mut_ptr().add(authorities_len as usize)
+                as *mut _ as *const Pubkey;
+            core::slice::from_raw_parts(authorities_ptr, authorities_len as usize)
+        };
+        Ok(authorities)
+    }
+
+    pub fn systems_size(&mut self) -> Result<usize, ProgramError> {
+        let systems_len = *self.systems_len()?;
+        Ok(systems_size(systems_len))
+    }
+
+    pub fn systems_len(&mut self) -> Result<&mut u32, ProgramError> {
+        Ok(unsafe {
+            let permissionless_ptr = self.is_permissionless()? as *mut bool;
+            &mut *(permissionless_ptr.add(1) as *mut u32)
+        })
+    }
+
+    pub fn systems_pubkey_slice(&mut self) -> Result<&mut [Pubkey], ProgramError> {
+        let systems_len = self.systems_len()?;
+
+        let systems_ptr = unsafe { (systems_len as *mut _ as *mut u8).add(4) as *mut Pubkey };
+
+        Ok(unsafe {
+            core::slice::from_raw_parts_mut(
+                systems_ptr,
+                *systems_len as usize / core::mem::size_of::<Pubkey>(),
+            )
+        })
+    }
+
+    pub fn systems_slice(&mut self) -> Result<&mut [u8], ProgramError> {
+        let systems_len = self.systems_len()?;
+
+        let offset = core::mem::size_of::<u32>();
+
+        let systems_ptr = unsafe { (systems_len as *mut _ as *mut u8).add(offset) };
+
+        Ok(unsafe { core::slice::from_raw_parts_mut(systems_ptr, *systems_len as usize) })
+    }
+
+    pub fn add_system(&mut self, system: &Pubkey) -> Result<usize, ProgramError> {
+        let system_slice = self.systems_pubkey_slice()?;
+
+        let mut vec = Vec::new();
+        vec.extend_from_slice(system_slice);
+
+        let original_len = vec.len();
+
+        let mut system_set: BTreeSet<Pubkey> = vec.into_iter().collect();
+        system_set.insert(*system);
+
+        let new_len = system_set.len();
+
+        let mut size = 0;
+
+        if new_len.saturating_sub(original_len) > 0 {
+            let vec_slice: Vec<Pubkey> = system_set.into_iter().collect();
+
+            let new_slice =
+                unsafe { core::slice::from_raw_parts_mut(system_slice.as_mut_ptr(), new_len) };
+
+            new_slice[0..].copy_from_slice(&vec_slice);
+
+            let added_size = core::mem::size_of::<Pubkey>();
+
+            let systems_len = self.systems_len()?;
+            *systems_len += added_size as u32;
+
+            size += added_size;
+        }
+
+        Ok(size)
+    }
+
+    pub fn size(&mut self) -> Result<usize, ProgramError> {
+        Ok(24 + self.authority_size()? + self.permissionless_len()? + self.systems_size()?)
+    }
+}
+
+pub fn systems_size(count: u32) -> usize {
+    core::mem::size_of::<u32>() + count as usize
+}
+
+pub fn authorities_size(count: u32) -> usize {
+    core::mem::size_of::<u32>() + (count as usize * core::mem::size_of::<Pubkey>())
 }
