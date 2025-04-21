@@ -159,12 +159,32 @@ impl<'a> WorldMutate<'a> {
         Ok(())
     }
 
+    pub fn remove_authority(&mut self, index: usize) -> Result<(), ProgramError> {
+        let authorities_len = *self.authorities_len()? as usize;
+        let remaining_athorities = authorities_len - index - 1;
+
+        let size_to_move = self.permissionless_len()?
+            + self.systems_size()?
+            + authorities_size(remaining_athorities);
+
+        unsafe {
+            let authorities_ptr = self.authorities_mut()?.as_mut_ptr();
+            let src_ptr = authorities_ptr.add(index + 1);
+            let dst_ptr = authorities_ptr.add(index);
+            sol_memmove(dst_ptr as *mut u8, src_ptr as *mut u8, size_to_move);
+        };
+
+        *self.authorities_len()? -= 1;
+
+        Ok(())
+    }
+
     pub fn authorities_len(&mut self) -> Result<&mut u32, ProgramError> {
         Ok(unsafe { &mut *(self.world_data.as_mut_ptr() as *mut u32) })
     }
 
     pub fn permissionless_len(&mut self) -> Result<usize, ProgramError> {
-        Ok(1)
+        Ok(core::mem::size_of::<bool>())
     }
 
     pub fn permissionless(&mut self) -> Result<&mut u8, ProgramError> {
@@ -185,7 +205,17 @@ impl<'a> WorldMutate<'a> {
 
     pub fn authority_size(&mut self) -> Result<usize, ProgramError> {
         let authorities_len = *self.authorities_len()?;
-        Ok(authorities_size(authorities_len))
+        Ok(authorities_size(authorities_len as usize))
+    }
+
+    fn authorities_mut(&mut self) -> Result<&mut [Pubkey], ProgramError> {
+        let authorities_len = *self.authorities_len()?;
+        let authorities = unsafe {
+            let authorities_ptr =
+                self.world_data.as_mut_ptr().add(authorities_len as usize) as *mut _ as *mut Pubkey;
+            core::slice::from_raw_parts_mut(authorities_ptr, authorities_len as usize)
+        };
+        Ok(authorities)
     }
 
     pub fn authorities(&mut self) -> Result<&[Pubkey], ProgramError> {
@@ -200,7 +230,7 @@ impl<'a> WorldMutate<'a> {
 
     pub fn systems_size(&mut self) -> Result<usize, ProgramError> {
         let systems_len = *self.systems_len()?;
-        Ok(systems_size(systems_len))
+        Ok(systems_size(systems_len as usize))
     }
 
     pub fn systems_len(&mut self) -> Result<&mut u32, ProgramError> {
@@ -235,11 +265,10 @@ impl<'a> WorldMutate<'a> {
 
     pub fn add_system(&mut self, system: &Pubkey) -> Result<usize, ProgramError> {
         let system_slice = self.systems_pubkey_slice()?;
+        let original_len = system_slice.len();
 
-        let mut vec = Vec::new();
+        let mut vec = Vec::with_capacity(original_len + 1);
         vec.extend_from_slice(system_slice);
-
-        let original_len = vec.len();
 
         let mut system_set: BTreeSet<Pubkey> = vec.into_iter().collect();
         system_set.insert(*system);
@@ -267,15 +296,36 @@ impl<'a> WorldMutate<'a> {
         Ok(size)
     }
 
+    pub fn remove_system(&mut self, index: usize) -> Result<(), ProgramError> {
+        let authorities_len = self.systems_pubkey_slice()?.len();
+
+        let remaining_systems = authorities_len - index - 1;
+
+        let size_to_move = remaining_systems * core::mem::size_of::<Pubkey>();
+
+        if remaining_systems > 0 {
+            unsafe {
+                let authorities_ptr = self.systems_pubkey_slice()?.as_mut_ptr();
+                let src_ptr = authorities_ptr.add(index + 1);
+                let dst_ptr = authorities_ptr.add(index);
+                sol_memmove(dst_ptr as *mut u8, src_ptr as *mut u8, size_to_move);
+            };
+        }
+
+        *self.authorities_len()? -= 1;
+
+        Ok(())
+    }
+
     pub fn size(&mut self) -> Result<usize, ProgramError> {
         Ok(24 + self.authority_size()? + self.permissionless_len()? + self.systems_size()?)
     }
 }
 
-pub fn systems_size(count: u32) -> usize {
-    core::mem::size_of::<u32>() + count as usize
+pub fn systems_size(count: usize) -> usize {
+    core::mem::size_of::<u32>() + count
 }
 
-pub fn authorities_size(count: u32) -> usize {
-    core::mem::size_of::<u32>() + (count as usize * core::mem::size_of::<Pubkey>())
+pub fn authorities_size(count: usize) -> usize {
+    core::mem::size_of::<u32>() + (count * core::mem::size_of::<Pubkey>())
 }

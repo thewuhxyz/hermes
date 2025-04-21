@@ -4,6 +4,7 @@
 mod consts;
 mod instructions;
 mod state;
+mod utils;
 
 use consts::DISCRIMATOR_LENGTH;
 use instructions::*;
@@ -29,7 +30,10 @@ pub fn process_instruction(
         WorldInstruction::InitializeRegistry => initialize_registry(accounts),
         WorldInstruction::InitializeNewWorld => initialize_new_world(accounts),
         WorldInstruction::AddAuthority => add_authority(accounts, data),
+        WorldInstruction::RemoveAuthority => remove_authority(accounts, data),
         WorldInstruction::ApproveSystem => approve_system(accounts),
+        WorldInstruction::RemoveSystem => remove_system(accounts),
+        WorldInstruction::AddEntity => add_entity(accounts),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

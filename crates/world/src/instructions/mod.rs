@@ -1,6 +1,9 @@
 mod add_authority;
 pub use add_authority::*;
 
+mod add_entity;
+pub use add_entity::*;
+
 mod approve_system;
 pub use approve_system::*;
 
@@ -9,6 +12,12 @@ pub use initialize_registry::*;
 
 mod initialize_new_world;
 pub use initialize_new_world::*;
+
+mod remove_authority;
+pub use remove_authority::*;
+
+mod remove_system;
+pub use remove_system::*;
 
 
 
