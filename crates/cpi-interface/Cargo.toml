@@ -1,13 +1,12 @@
 [package]
-name = "hermes-world"
+name = "hermes-cpi-interface"
 version = {workspace = true}
 edition = {workspace = true}
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["rlib"]
 
 [dependencies]
-hermes-cpi-interface = {workspace = true}
 pinocchio = {workspace = true}
 pinocchio-pubkey = {workspace = true}
 pinocchio-system = {workspace = true}

@@ -4,8 +4,20 @@ pub use add_authority::*;
 mod add_entity;
 pub use add_entity::*;
 
+mod apply_system;
+pub use apply_system::*;
+
+mod apply_system_session;
+pub use apply_system_session::*;
+
 mod approve_system;
 pub use approve_system::*;
+
+mod destroy_component;
+pub use destroy_component::*;
+
+mod initialize_component;
+pub use initialize_component::*;
 
 mod initialize_registry;
 pub use initialize_registry::*;
@@ -18,8 +30,6 @@ pub use remove_authority::*;
 
 mod remove_system;
 pub use remove_system::*;
-
-
 
 use pinocchio::program_error::ProgramError;
 
@@ -36,7 +46,9 @@ pub enum WorldInstruction {
     RemoveSystem,
     AddEntity,
     InitilizeComponent,
+    DestroyComponent,
     Apply,
+    ApplyWithSession,
 }
 
 impl TryFrom<&u64> for WorldInstruction {
@@ -52,7 +64,9 @@ impl TryFrom<&u64> for WorldInstruction {
             1005 => Ok(WorldInstruction::RemoveSystem),
             1006 => Ok(WorldInstruction::AddEntity),
             1007 => Ok(WorldInstruction::InitilizeComponent),
-            1008 => Ok(WorldInstruction::Apply),
+            1008 => Ok(WorldInstruction::DestroyComponent),
+            1009 => Ok(WorldInstruction::Apply),
+            1010 => Ok(WorldInstruction::ApplyWithSession),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

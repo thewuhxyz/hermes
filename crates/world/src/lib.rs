@@ -8,10 +8,7 @@ mod utils;
 
 use consts::DISCRIMATOR_LENGTH;
 use instructions::*;
-use pinocchio::{
-    account_info::AccountInfo, entrypoint, program_error::ProgramError, pubkey::Pubkey,
-    ProgramResult,
-};
+use pinocchio::{account_info::AccountInfo, entrypoint, pubkey::Pubkey, ProgramResult};
 
 pinocchio_pubkey::declare_id!("WorLD15A7CrDwLcLy4fRqtaTb9fbd8o8iqiEMUDse2n");
 
@@ -31,9 +28,13 @@ pub fn process_instruction(
         WorldInstruction::InitializeNewWorld => initialize_new_world(accounts),
         WorldInstruction::AddAuthority => add_authority(accounts, data),
         WorldInstruction::RemoveAuthority => remove_authority(accounts, data),
+        WorldInstruction::InitilizeComponent => initialize_component(accounts),
+        WorldInstruction::DestroyComponent => destroy_component(accounts),
         WorldInstruction::ApproveSystem => approve_system(accounts),
         WorldInstruction::RemoveSystem => remove_system(accounts),
+        WorldInstruction::Apply => apply_system(accounts, data),
+        WorldInstruction::ApplyWithSession => apply_system_session(accounts, data),
         WorldInstruction::AddEntity => add_entity(accounts),
-        _ => Err(ProgramError::InvalidInstructionData),
+        // _ => Err(ProgramError::InvalidInstructionData),
     }
 }

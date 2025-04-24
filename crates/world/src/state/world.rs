@@ -124,7 +124,8 @@ impl<'a> WorldMutate<'a> {
     pub fn init_new_world(account_data: &'a mut [u8]) -> Result<Self, ProgramError> {
         let (world_metadata_bytes, world_data) = account_data.split_at_mut(WorldMetadata::LEN);
 
-        let world_metadata = unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
+        let mut world_metadata =
+            unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
         *world_metadata = WorldMetadata::default();
 
         let mut world = Self {

@@ -1,9 +1,5 @@
 use crate::state::{entity::Entity, transmutable::TransmutableMut, world::WorldMutate};
-use pinocchio::{
-    account_info::AccountInfo,
-    program_error::ProgramError,
-    ProgramResult,
-};
+use pinocchio::{account_info::AccountInfo, program_error::ProgramError, ProgramResult};
 
 pub fn add_entity(accounts: &[AccountInfo]) -> ProgramResult {
     let [_payer, entity_acct, world_acct, _system_program] = accounts else {

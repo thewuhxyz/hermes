@@ -1,4 +1,4 @@
-use crate::{state::world::WorldMutate, utils::sol_assert_bytes_eq};
+use crate::state::world::WorldMutate;
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,

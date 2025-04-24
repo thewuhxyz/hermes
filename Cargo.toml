@@ -8,6 +8,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
+hermes-cpi-interface = { path = "crates/cpi-interface"}
 pinocchio = "0.8.2"
 pinocchio-pubkey = "0.2.4"
 pinocchio-system = "0.2.3"

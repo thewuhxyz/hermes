@@ -18,9 +18,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2551bf44bc5f776c15044b9b94153a00198be06743e262afaaa61f11ac7523a5"
 
 [[package]]
+name = "hermes-cpi-interface"
+version = "0.1.0"
+dependencies = [
+ "pinocchio",
+ "pinocchio-pubkey",
+ "pinocchio-system",
+]
+
+[[package]]
 name = "hermes-world"
 version = "0.1.0"
 dependencies = [
+ "hermes-cpi-interface",
  "pinocchio",
  "pinocchio-pubkey",
  "pinocchio-system",
