@@ -19,12 +19,9 @@ pub fn remove_system(accounts: &[AccountInfo]) -> ProgramResult {
         return Err(ProgramError::InvalidAccountData);
     }
 
-    if let Some(index) = world
-        .systems_pubkey_slice()?
-        .iter()
-        .position(|x| x == system.key())
-    {
-        world.remove_system(index)?;
+    let size = world.remove_system(system.key())?;
+
+    if size > 0 {
         let world_size = world.size()?;
         let rent = Rent::get()?;
         let new_minimum_balance = rent.minimum_balance(world_size);

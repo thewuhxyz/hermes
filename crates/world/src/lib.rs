@@ -1,4 +1,4 @@
-// #![no_std]
+#![no_std]
 #![allow(unexpected_cfgs)]
 
 mod consts;

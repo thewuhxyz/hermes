@@ -1,13 +1,9 @@
-use super::{
-    into_bytes::IntoBytes,
-    transmutable::{Transmutable, TransmutableMut},
-};
+use super::transmutable::{Transmutable, TransmutableMut};
 use pinocchio::{
     memory::sol_memmove,
     program_error::ProgramError,
     pubkey::{find_program_address, Pubkey},
 };
-use std::collections::BTreeSet;
 
 pub const WORLD_DISCRIMINATOR: u64 = 0;
 
@@ -15,10 +11,6 @@ pub const NEW_WORLD_SIZE: usize = 8 + 8 + 8 + 4 + 1 + 4;
 
 pub fn world_seed() -> &'static [u8] {
     b"world"
-}
-
-pub fn world_size() -> usize {
-    16 + 8 + 1 + 8
 }
 
 pub fn world_pda(id: &u64) -> (Pubkey, u8) {
@@ -38,14 +30,6 @@ impl TransmutableMut for WorldMetadata {}
 
 impl Transmutable for WorldMetadata {
     const LEN: usize = core::mem::size_of::<WorldMetadata>();
-}
-
-impl IntoBytes for WorldMetadata {
-    fn into_bytes(&self) -> Result<&[u8], ProgramError> {
-        let bytes =
-            unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, Self::LEN) };
-        Ok(bytes)
-    }
 }
 
 impl Default for WorldMetadata {
@@ -124,7 +108,7 @@ impl<'a> WorldMutate<'a> {
     pub fn init_new_world(account_data: &'a mut [u8]) -> Result<Self, ProgramError> {
         let (world_metadata_bytes, world_data) = account_data.split_at_mut(WorldMetadata::LEN);
 
-        let mut world_metadata =
+        let world_metadata =
             unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
         *world_metadata = WorldMetadata::default();
 
@@ -254,55 +238,59 @@ impl<'a> WorldMutate<'a> {
         })
     }
 
-    pub fn systems_slice(&mut self) -> Result<&mut [u8], ProgramError> {
-        let systems_len = self.systems_len()?;
+    // pub fn systems_slice(&mut self) -> Result<&mut [u8], ProgramError> {
+    //     let systems_len = self.systems_len()?;
 
-        let offset = core::mem::size_of::<u32>();
+    //     let offset = core::mem::size_of::<u32>();
 
-        let systems_ptr = unsafe { (systems_len as *mut _ as *mut u8).add(offset) };
+    //     let systems_ptr = unsafe { (systems_len as *mut _ as *mut u8).add(offset) };
 
-        Ok(unsafe { core::slice::from_raw_parts_mut(systems_ptr, *systems_len as usize) })
-    }
+    //     Ok(unsafe { core::slice::from_raw_parts_mut(systems_ptr, *systems_len as usize) })
+    // }
 
     pub fn add_system(&mut self, system: &Pubkey) -> Result<usize, ProgramError> {
         let system_slice = self.systems_pubkey_slice()?;
-        let original_len = system_slice.len();
 
-        let mut vec = Vec::with_capacity(original_len + 1);
-        vec.extend_from_slice(system_slice);
+        let insert_pos = match system_slice.binary_search(system) {
+            Ok(_) => return Ok(0),
+            Err(pos) => pos,
+        };
 
-        let mut system_set: BTreeSet<Pubkey> = vec.into_iter().collect();
-        system_set.insert(*system);
+        let shift = system_slice.len().saturating_sub(insert_pos);
 
-        let new_len = system_set.len();
+        let size = core::mem::size_of::<Pubkey>();
 
-        let mut size = 0;
+        unsafe {
+            let src = system_slice.as_mut_ptr().add(insert_pos);
 
-        if new_len.saturating_sub(original_len) > 0 {
-            let vec_slice: Vec<Pubkey> = system_set.into_iter().collect();
+            if shift > 0 {
+                let dst = src.add(1);
+                sol_memmove(dst as *mut u8, src as *mut u8, shift * size);
+            };
 
-            let new_slice =
-                unsafe { core::slice::from_raw_parts_mut(system_slice.as_mut_ptr(), new_len) };
-
-            new_slice[0..].copy_from_slice(&vec_slice);
-
-            let added_size = core::mem::size_of::<Pubkey>();
-
-            let systems_len = self.systems_len()?;
-            *systems_len += added_size as u32;
-
-            size += added_size;
+            *src = *system;
         }
+
+        *self.systems_len()? += size as u32;
 
         Ok(size)
     }
 
-    pub fn remove_system(&mut self, index: usize) -> Result<(), ProgramError> {
+    pub fn remove_system(&mut self, system: &Pubkey) -> Result<usize, ProgramError> {
+        match self.systems_pubkey_slice()?.binary_search(system) {
+            Ok(index) => self.remove_system_at_index(index),
+            Err(_) => Ok(0),
+        }
+    }
+
+    fn remove_system_at_index(&mut self, index: usize) -> Result<usize, ProgramError> {
         let authorities_len = self.systems_pubkey_slice()?.len();
 
         let remaining_systems = authorities_len - index - 1;
 
-        let size_to_move = remaining_systems * core::mem::size_of::<Pubkey>();
+        let size = core::mem::size_of::<Pubkey>();
+
+        let size_to_move = remaining_systems * size;
 
         if remaining_systems > 0 {
             unsafe {
@@ -313,9 +301,9 @@ impl<'a> WorldMutate<'a> {
             };
         }
 
-        *self.authorities_len()? -= 1;
+        *self.systems_len()? -= size as u32;
 
-        Ok(())
+        Ok(size)
     }
 
     pub fn size(&mut self) -> Result<usize, ProgramError> {
