@@ -36,8 +36,6 @@ impl UpdateWithSession<'_> {
             AccountMeta::readonly(self.session_token.key()),
         ];
 
-        // let instruction_data = [];
-
         let instruction = Instruction {
             program_id: self.component_program,
             accounts: &account_metas,

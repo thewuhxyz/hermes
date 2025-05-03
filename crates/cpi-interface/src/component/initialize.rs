@@ -40,12 +40,10 @@ impl Initialize<'_> {
             AccountMeta::readonly(self.system_program.key()),
         ];
 
-        let instruction_data = [];
-
         let instruction = Instruction {
             program_id: self.component_program,
             accounts: &account_metas,
-            data: &instruction_data,
+            data: &[],
         };
 
         invoke_signed(

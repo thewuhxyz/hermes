@@ -34,8 +34,6 @@ pub fn apply_system_session(accounts: &[AccountInfo], data: &[u8]) -> ProgramRes
 
     let components_pair = &remaining[..sep_idx.unwrap_or(remaining.len())];
 
-    // let offset = core::mem::size_of::<u32>();
-
     let (_, data) = return_data.as_slice().split_at(core::mem::size_of::<u32>());
 
     let mut cursor = 0;

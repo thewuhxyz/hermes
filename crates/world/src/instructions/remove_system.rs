@@ -1,4 +1,4 @@
-use crate::state::world::WorldMutate;
+use crate::state::world::WorldMut;
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -11,7 +11,7 @@ pub fn remove_system(accounts: &[AccountInfo]) -> ProgramResult {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let mut world = unsafe { WorldMutate::from_bytes(world_acct.borrow_mut_data_unchecked())? };
+    let mut world = unsafe { WorldMut::from_bytes(world_acct.borrow_mut_data_unchecked())? };
 
     let authorities = world.authorities()?;
 

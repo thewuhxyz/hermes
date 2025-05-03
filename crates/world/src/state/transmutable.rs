@@ -3,7 +3,7 @@ use pinocchio::program_error::ProgramError;
 pub trait Transmutable: Sized {
     const LEN: usize;
 
-    /// # Safety:
+    /// # Safety
     unsafe fn load_unchecked(bytes: &[u8]) -> Result<&Self, ProgramError> {
         if bytes.len() != Self::LEN {
             return Err(ProgramError::InvalidAccountData);

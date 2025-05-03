@@ -23,7 +23,6 @@ version = "0.1.0"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",
- "pinocchio-system",
 ]
 
 [[package]]

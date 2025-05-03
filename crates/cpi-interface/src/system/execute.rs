@@ -9,13 +9,12 @@ use pinocchio::{
 };
 
 pub struct Execute<'a> {
-    /// Authority
     pub authority: &'a AccountInfo,
 
     pub components: &'a [&'a AccountInfo],
 
     pub remaining_accounts: &'a [&'a AccountInfo],
-    /// Instruction
+
     pub system: &'a Pubkey,
 
     pub instruction_data: &'a [u8],
@@ -62,12 +61,10 @@ impl Execute<'_> {
         let account_metas =
             unsafe { core::slice::from_raw_parts(maybe_account_metas.as_ptr() as _, len) };
 
-        let instruction_data = [];
-
         let instruction = Instruction {
             program_id: self.system,
             accounts: account_metas,
-            data: &instruction_data,
+            data: self.instruction_data,
         };
 
         slice_invoke_signed(&instruction, account_infos, signers)

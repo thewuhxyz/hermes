@@ -1,30 +1,45 @@
-use super::transmutable::{Transmutable, TransmutableMut};
+use super::{
+    account::AnchorAccount,
+    transmutable::{Transmutable, TransmutableMut},
+};
 use pinocchio::{
+    instruction::Seed,
     memory::sol_memmove,
     program_error::ProgramError,
     pubkey::{find_program_address, Pubkey},
+    ProgramResult,
 };
 
-pub const WORLD_DISCRIMINATOR: u64 = 0;
+pub struct World;
 
-pub const NEW_WORLD_SIZE: usize = 8 + 8 + 8 + 4 + 1 + 4;
+impl World {
+    pub const DISCRIMINATOR: [u8; 8] = [145, 45, 170, 174, 122, 32, 155, 124];
 
-pub fn world_seed() -> &'static [u8] {
-    b"world"
-}
+    pub const INIT_SIZE: usize = 8 + 8 + 8 + 4 + 1 + 4;
 
-pub fn world_pda(id: &u64) -> (Pubkey, u8) {
-    find_program_address(&[world_seed(), &id.to_be_bytes()], &crate::ID)
+    fn world_seed() -> &'static [u8] {
+        b"world"
+    }
+
+    pub fn pda(id: &[u8; 8]) -> (Pubkey, u8) {
+        find_program_address(&[Self::world_seed(), id], &crate::ID)
+    }
+
+    pub fn signer<'a>(world_id: &'a [u8; 8], bump: &'a [u8; 1]) -> [Seed<'a>; 3] {
+        [
+            Self::world_seed().as_ref().into(),
+            world_id.as_ref().into(),
+            bump.as_ref().into(),
+        ]
+    }
 }
 
 #[repr(C)]
 pub struct WorldMetadata {
-    pub discriminator: u64,
+    pub discriminator: [u8; 8],
     pub id: u64,
     pub entities: u64,
 }
-
-impl WorldMetadata {}
 
 impl TransmutableMut for WorldMetadata {}
 
@@ -35,14 +50,15 @@ impl Transmutable for WorldMetadata {
 impl Default for WorldMetadata {
     fn default() -> Self {
         Self {
-            discriminator: WORLD_DISCRIMINATOR,
+            discriminator: World::DISCRIMINATOR,
             entities: 0,
             id: 0,
         }
     }
 }
 
-pub struct World<'a> {
+#[allow(dead_code)]
+pub struct WorldRef<'a> {
     pub world_metadata: &'a WorldMetadata,
     pub authorities_len: u32,
     pub authorities: &'a [Pubkey],
@@ -51,7 +67,7 @@ pub struct World<'a> {
     pub systems: &'a [u8],
 }
 
-impl<'a> World<'a> {
+impl<'a> WorldRef<'a> {
     pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, ProgramError> {
         let world = unsafe {
             let world_metadata = WorldMetadata::load_unchecked(&bytes[..WorldMetadata::LEN])?;
@@ -83,14 +99,21 @@ impl<'a> World<'a> {
 
         Ok(world)
     }
+
+    pub fn assert_account(&self) -> ProgramResult {
+        if self.world_metadata.discriminator != Self::DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        Ok(())
+    }
 }
 
-pub struct WorldMutate<'a> {
+pub struct WorldMut<'a> {
     pub world_metadata: &'a mut WorldMetadata,
     pub world_data: &'a mut [u8],
 }
 
-impl<'a> WorldMutate<'a> {
+impl<'a> WorldMut<'a> {
     pub fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, ProgramError> {
         let world = unsafe {
             let (world_metadata_bytes, world_data) = bytes.split_at_mut(WorldMetadata::LEN);
@@ -108,8 +131,7 @@ impl<'a> WorldMutate<'a> {
     pub fn init_new_world(account_data: &'a mut [u8]) -> Result<Self, ProgramError> {
         let (world_metadata_bytes, world_data) = account_data.split_at_mut(WorldMetadata::LEN);
 
-        let world_metadata =
-            unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
+        let world_metadata = unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
         *world_metadata = WorldMetadata::default();
 
         let mut world = Self {
@@ -238,16 +260,6 @@ impl<'a> WorldMutate<'a> {
         })
     }
 
-    // pub fn systems_slice(&mut self) -> Result<&mut [u8], ProgramError> {
-    //     let systems_len = self.systems_len()?;
-
-    //     let offset = core::mem::size_of::<u32>();
-
-    //     let systems_ptr = unsafe { (systems_len as *mut _ as *mut u8).add(offset) };
-
-    //     Ok(unsafe { core::slice::from_raw_parts_mut(systems_ptr, *systems_len as usize) })
-    // }
-
     pub fn add_system(&mut self, system: &Pubkey) -> Result<usize, ProgramError> {
         let system_slice = self.systems_pubkey_slice()?;
 
@@ -317,4 +329,12 @@ pub fn systems_size(count: usize) -> usize {
 
 pub fn authorities_size(count: usize) -> usize {
     core::mem::size_of::<u32>() + (count * core::mem::size_of::<Pubkey>())
+}
+
+impl AnchorAccount for WorldRef<'_> {
+    const DISCRIMINATOR: [u8;8] = World::DISCRIMINATOR;
+}
+
+impl AnchorAccount for WorldMut<'_> {
+    const DISCRIMINATOR: [u8;8] = World::DISCRIMINATOR;
 }

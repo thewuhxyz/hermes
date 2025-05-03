@@ -7,10 +7,7 @@ use pinocchio::{
 };
 use pinocchio_system::instructions::CreateAccount;
 
-use crate::state::{
-    registry::{registry_signer, Registry},
-    transmutable::Transmutable,
-};
+use crate::state::{registry::Registry, transmutable::Transmutable};
 
 pub fn initialize_registry(accounts: &[AccountInfo]) -> ProgramResult {
     let [registry, payer, _system_program] = accounts else {
@@ -28,7 +25,9 @@ pub fn initialize_registry(accounts: &[AccountInfo]) -> ProgramResult {
         space: Registry::LEN as u64,
         owner: &crate::ID,
     }
-    .invoke_signed(&[registry_signer(&[bump]).as_slice().into()])?;
+    .invoke_signed(&[Registry::signer(&[bump]).as_slice().into()])?;
+
+    Registry::init(unsafe{registry.borrow_mut_data_unchecked()})?;
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::state::world::WorldMutate;
+use crate::state::world::{World, WorldMut};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -11,9 +11,14 @@ pub fn remove_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult 
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let _world_id: &u64 = unsafe { &*(data.as_ptr().read_unaligned() as *const u64) };
+    let world_id  = unsafe { (data.as_ptr() as *const u64).read_unaligned() };
 
-    let mut world = unsafe { WorldMutate::from_bytes(world_acct.borrow_mut_data_unchecked())? };
+    // assert world pda
+    if &World::pda(&world_id.to_be_bytes()).0 != world_acct.key() {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    let mut world = unsafe { WorldMut::from_bytes(world_acct.borrow_mut_data_unchecked())? };
 
     let authorities = world.authorities()?;
 

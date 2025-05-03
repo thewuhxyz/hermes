@@ -33,8 +33,6 @@ impl Update<'_> {
             AccountMeta::readonly(self.instruction_sysvar_account.key()),
         ];
 
-        // let instruction_data = [];
-
         let instruction = Instruction {
             program_id: self.component_program,
             accounts: &account_metas,

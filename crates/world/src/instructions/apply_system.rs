@@ -6,12 +6,15 @@ use pinocchio::{
     ProgramResult,
 };
 
-use crate::utils::init_execute_cpi_accounts;
+use crate::{state::world::WorldRef, utils::init_execute_cpi_accounts};
 
 pub fn apply_system(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
-    let [system, authority, instruction_sysvar_account, _world, remaining @ ..] = accounts else {
+    let [system, authority, instruction_sysvar_account, world, remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
+
+    let world_ref = WorldRef::from_bytes(unsafe {world.borrow_data_unchecked()})?;
+    world_ref.assert_account()?;
 
     const UNINIT_INFO: MaybeUninit<&AccountInfo> = MaybeUninit::uninit();
 
@@ -32,8 +35,6 @@ pub fn apply_system(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let return_data = get_return_data().ok_or(ProgramError::InvalidAccountData)?;
 
     let components_pair = &remaining[..sep_idx.unwrap_or(remaining.len())];
-
-    // let offset = core::mem::size_of::<u32>();
 
     let (_, data) = return_data.as_slice().split_at(core::mem::size_of::<u32>());
 

@@ -33,47 +33,50 @@ pub use remove_system::*;
 
 use pinocchio::program_error::ProgramError;
 
-// will include anchor discrimator later in u64
-pub const INITIALIZE_REGISTRY_DISCRIMINATOR: u64 = 1000;
+pub const INITIALIZE_REGISTRY_DISCRIMINATOR: u64 = 4321548737212364221;
+pub const INITIALIZE_NEW_WORLD_DISCRIMINATOR: u64 = 7118163274173538327;
+pub const ADD_AUTHORIITY_DISCRIMINATOR: u64 = 13217455069452700133;
+pub const REMOVE_AUTHORIITY_DISCRIMINATOR: u64 = 15585545156648003826;
+pub const APPROVE_SYSTEM_DISCRIMINATOR: u64 = 8777308090533520754;
+pub const REMOVE_SYSTEM_DISCRIMINATOR: u64 = 8688994685429436634;
+pub const ADD_ENTITY_DISCRIMINATOR: u64 = 4121062988444201379;
+pub const INITIALIZE_COMPONENT_DISCRIMINATOR: u64 = 2179155133888827172;
+pub const DESTROY_COMPONENT_DISCRIMINATOR: u64 = 5321952129328727336;
+pub const APPLY_DISCRIMINATOR: u64 = 16258613031726085112;
+pub const APPLY_WITH_SESSION_DISCRIMINATOR: u64 = 7459768094276011477;
 
 #[repr(u64)]
 pub enum WorldInstruction {
     InitializeRegistry = INITIALIZE_REGISTRY_DISCRIMINATOR,
-    InitializeNewWorld,
-    AddAuthority,
-    RemoveAuthority,
-    ApproveSystem,
-    RemoveSystem,
-    AddEntity,
-    InitilizeComponent,
-    DestroyComponent,
-    Apply,
-    ApplyWithSession,
+    InitializeNewWorld = INITIALIZE_NEW_WORLD_DISCRIMINATOR,
+    AddAuthority = ADD_AUTHORIITY_DISCRIMINATOR,
+    RemoveAuthority = REMOVE_AUTHORIITY_DISCRIMINATOR,
+    ApproveSystem = APPROVE_SYSTEM_DISCRIMINATOR,
+    RemoveSystem = REMOVE_SYSTEM_DISCRIMINATOR,
+    AddEntity = ADD_ENTITY_DISCRIMINATOR,
+    InitilizeComponent = INITIALIZE_COMPONENT_DISCRIMINATOR,
+    DestroyComponent = DESTROY_COMPONENT_DISCRIMINATOR,
+    Apply = APPLY_DISCRIMINATOR,
+    ApplyWithSession = APPLY_WITH_SESSION_DISCRIMINATOR,
 }
 
-impl TryFrom<&u64> for WorldInstruction {
+impl TryFrom<u64> for WorldInstruction {
     type Error = ProgramError;
 
-    fn try_from(byte: &u64) -> Result<Self, Self::Error> {
+    fn try_from(byte: u64) -> Result<Self, Self::Error> {
         match byte {
-            1000 => Ok(WorldInstruction::InitializeRegistry),
-            1001 => Ok(WorldInstruction::InitializeNewWorld),
-            1002 => Ok(WorldInstruction::AddAuthority),
-            1003 => Ok(WorldInstruction::RemoveAuthority),
-            1004 => Ok(WorldInstruction::ApproveSystem),
-            1005 => Ok(WorldInstruction::RemoveSystem),
-            1006 => Ok(WorldInstruction::AddEntity),
-            1007 => Ok(WorldInstruction::InitilizeComponent),
-            1008 => Ok(WorldInstruction::DestroyComponent),
-            1009 => Ok(WorldInstruction::Apply),
-            1010 => Ok(WorldInstruction::ApplyWithSession),
+            INITIALIZE_REGISTRY_DISCRIMINATOR => Ok(WorldInstruction::InitializeRegistry),
+            INITIALIZE_NEW_WORLD_DISCRIMINATOR => Ok(WorldInstruction::InitializeNewWorld),
+            ADD_AUTHORIITY_DISCRIMINATOR => Ok(WorldInstruction::AddAuthority),
+            REMOVE_AUTHORIITY_DISCRIMINATOR => Ok(WorldInstruction::RemoveAuthority),
+            APPROVE_SYSTEM_DISCRIMINATOR => Ok(WorldInstruction::ApproveSystem),
+            REMOVE_SYSTEM_DISCRIMINATOR => Ok(WorldInstruction::RemoveSystem),
+            ADD_ENTITY_DISCRIMINATOR => Ok(WorldInstruction::AddEntity),
+            INITIALIZE_COMPONENT_DISCRIMINATOR => Ok(WorldInstruction::InitilizeComponent),
+            DESTROY_COMPONENT_DISCRIMINATOR => Ok(WorldInstruction::DestroyComponent),
+            APPLY_DISCRIMINATOR => Ok(WorldInstruction::Apply),
+            APPLY_WITH_SESSION_DISCRIMINATOR => Ok(WorldInstruction::ApplyWithSession),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }
-}
-
-pub fn get_instruction(raw: &u64) -> Result<&WorldInstruction, ProgramError> {
-    WorldInstruction::try_from(raw)?;
-    let ptr = raw as *const u64 as *const WorldInstruction;
-    unsafe { Ok(&*ptr) }
 }

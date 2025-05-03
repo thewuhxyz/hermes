@@ -7,9 +7,9 @@ use pinocchio::{
 use pinocchio_system::instructions::CreateAccount;
 
 use crate::state::{
-    registry::{registry_signer, Registry},
+    registry::Registry,
     transmutable::TransmutableMut,
-    world::{world_pda, WorldMutate, NEW_WORLD_SIZE},
+    world::{World, WorldMut},
 };
 
 pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
@@ -19,20 +19,26 @@ pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
 
     let reg = unsafe { Registry::load_mut_unchecked(registry.borrow_mut_data_unchecked())? };
 
-    let (_, bump) = world_pda(&reg.worlds);
+    if Registry::seeds() != *registry.key() {
+        return Err(ProgramError::InvalidSeeds);
+    }
 
-    let lamports_needed = Rent::get()?.minimum_balance(NEW_WORLD_SIZE);
+    let (_, bump) = World::pda(&reg.worlds.to_le_bytes());
+
+    let lamports_needed = Rent::get()?.minimum_balance(World::INIT_SIZE);
 
     CreateAccount {
         from: payer,
         to: world,
         lamports: lamports_needed,
-        space: NEW_WORLD_SIZE as u64,
+        space: World::INIT_SIZE as u64,
         owner: &crate::ID,
     }
-    .invoke_signed(&[registry_signer(&[bump]).as_slice().into()])?;
+    .invoke_signed(&[World::signer(&reg.worlds.to_be_bytes(), &[bump])
+        .as_slice()
+        .into()])?;
 
-    WorldMutate::init_new_world(unsafe { world.borrow_mut_data_unchecked() })?;
+    WorldMut::init_new_world(unsafe { world.borrow_mut_data_unchecked() })?;
 
     reg.worlds += 1;
 
