@@ -11,6 +11,10 @@ pub fn add_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
+    if !authority.is_signer() {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
     let world_id = unsafe { (data.as_ptr() as *const u64).read_unaligned() };
 
     // assert world pda
@@ -18,7 +22,7 @@ pub fn add_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         return Err(ProgramError::InvalidSeeds);
     }
 
-    let mut world = unsafe { WorldMut::from_bytes(world_acct.borrow_mut_data_unchecked())? };
+    let mut world = WorldMut::from_account_info(world_acct)?;
 
     let authorities = world.authorities()?;
 

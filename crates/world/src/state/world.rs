@@ -3,11 +3,11 @@ use super::{
     transmutable::{Transmutable, TransmutableMut},
 };
 use pinocchio::{
+    account_info::AccountInfo,
     instruction::Seed,
     memory::sol_memmove,
     program_error::ProgramError,
     pubkey::{find_program_address, Pubkey},
-    ProgramResult,
 };
 
 pub struct World;
@@ -64,10 +64,16 @@ pub struct WorldRef<'a> {
     pub authorities: &'a [Pubkey],
     pub permissionless: &'a bool,
     pub systems_len: u32,
-    pub systems: &'a [u8],
+    pub systems: &'a [Pubkey],
 }
 
 impl<'a> WorldRef<'a> {
+    pub fn from_account_info(account_info: &'a AccountInfo) -> Result<Self, ProgramError> {
+        let data = Self::from_bytes(unsafe { account_info.borrow_data_unchecked() })?;
+        data.assert_account(account_info)?;
+        Ok(data)
+    }
+
     pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, ProgramError> {
         let world = unsafe {
             let world_metadata = WorldMetadata::load_unchecked(&bytes[..WorldMetadata::LEN])?;
@@ -85,7 +91,7 @@ impl<'a> WorldRef<'a> {
             let systems_len_ptr = permissionless_ptr.add(1) as *const _ as *const u32;
             let systems_len = systems_len_ptr.read_unaligned();
 
-            let systems_ptr = systems_len_ptr.add(1) as *const _ as *const u8;
+            let systems_ptr = systems_len_ptr.add(1) as *const _ as *const Pubkey;
 
             Self {
                 world_metadata,
@@ -93,18 +99,14 @@ impl<'a> WorldRef<'a> {
                 authorities_len,
                 permissionless: &*permissionless_ptr,
                 systems_len,
-                systems: core::slice::from_raw_parts(systems_ptr, systems_len as usize),
+                systems: core::slice::from_raw_parts(
+                    systems_ptr,
+                    systems_len as usize / core::mem::size_of::<Pubkey>(),
+                ),
             }
         };
 
         Ok(world)
-    }
-
-    pub fn assert_account(&self) -> ProgramResult {
-        if self.world_metadata.discriminator != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        Ok(())
     }
 }
 
@@ -114,6 +116,12 @@ pub struct WorldMut<'a> {
 }
 
 impl<'a> WorldMut<'a> {
+    pub fn from_account_info(account_info: &'a AccountInfo) -> Result<Self, ProgramError> {
+        let data = Self::from_bytes(unsafe { account_info.borrow_mut_data_unchecked() })?;
+        data.assert_account(account_info)?;
+        Ok(data)
+    }
+
     pub fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, ProgramError> {
         let world = unsafe {
             let (world_metadata_bytes, world_data) = bytes.split_at_mut(WorldMetadata::LEN);
@@ -332,9 +340,17 @@ pub fn authorities_size(count: usize) -> usize {
 }
 
 impl AnchorAccount for WorldRef<'_> {
-    const DISCRIMINATOR: [u8;8] = World::DISCRIMINATOR;
+    const DISCRIMINATOR: [u8; 8] = World::DISCRIMINATOR;
+
+    fn discriminator(&self) -> [u8; 8] {
+        self.world_metadata.discriminator
+    }
 }
 
 impl AnchorAccount for WorldMut<'_> {
-    const DISCRIMINATOR: [u8;8] = World::DISCRIMINATOR;
+    const DISCRIMINATOR: [u8; 8] = World::DISCRIMINATOR;
+
+    fn discriminator(&self) -> [u8; 8] {
+        self.world_metadata.discriminator
+    }
 }

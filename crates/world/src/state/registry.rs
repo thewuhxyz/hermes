@@ -1,4 +1,4 @@
-use pinocchio::{instruction::Seed, program_error::ProgramError};
+use pinocchio::{instruction::Seed, program_error::ProgramError, pubkey::{find_program_address, Pubkey}};
 
 use super::{
     account::AnchorAccount,
@@ -14,6 +14,10 @@ pub struct Registry {
 impl Registry {
     pub fn seeds() -> &'static [u8] {
         b"registry".as_ref()
+    }
+
+    pub fn pda() -> (Pubkey, u8) {
+        find_program_address(&[Registry::seeds()], &crate::ID)
     }
 
     pub fn signer(bump: &[u8; 1]) -> [Seed; 2] {
@@ -44,4 +48,8 @@ impl Transmutable for Registry {
 
 impl AnchorAccount for Registry {
     const DISCRIMINATOR: [u8; 8] = [47, 174, 110, 246, 184, 182, 252, 218];
+
+    fn discriminator(&self) -> [u8; 8] {
+        self.discriminator
+    }
 }

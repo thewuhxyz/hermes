@@ -1,4 +1,4 @@
-use crate::state::world::{World, WorldMut};
+use crate::{error::WorldError, state::world::{World, WorldMut}};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -11,19 +11,23 @@ pub fn remove_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult 
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let world_id  = unsafe { (data.as_ptr() as *const u64).read_unaligned() };
+    if !authority.is_signer() {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    let world_id = unsafe { (data.as_ptr() as *const u64).read_unaligned() };
 
     // assert world pda
     if &World::pda(&world_id.to_be_bytes()).0 != world_acct.key() {
         return Err(ProgramError::InvalidSeeds);
     }
 
-    let mut world = unsafe { WorldMut::from_bytes(world_acct.borrow_mut_data_unchecked())? };
+    let mut world = WorldMut::from_bytes(unsafe { world_acct.borrow_mut_data_unchecked() })?;
 
     let authorities = world.authorities()?;
 
     if !authorities.contains(authority_to_delete.key()) {
-        return Err(ProgramError::InvalidAccountData);
+        return Err(WorldError::InvalidAuthority.into());
     }
 
     if let Some(index) = world
@@ -47,6 +51,6 @@ pub fn remove_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult 
 
         world_acct.realloc(world_size, false)
     } else {
-        Err(ProgramError::InvalidAccountData)
+        Err(WorldError::AuthorityNotFound.into())
     }
 }

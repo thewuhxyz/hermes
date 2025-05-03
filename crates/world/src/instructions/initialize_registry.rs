@@ -1,7 +1,6 @@
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
-    pubkey::find_program_address,
     sysvars::{rent::Rent, Sysvar},
     ProgramResult,
 };
@@ -16,7 +15,7 @@ pub fn initialize_registry(accounts: &[AccountInfo]) -> ProgramResult {
 
     let lamports_needed = Rent::get()?.minimum_balance(Registry::LEN);
 
-    let (_, bump) = find_program_address(&[Registry::seeds()], &crate::ID);
+    let (_, bump) = Registry::pda();
 
     CreateAccount {
         from: payer,
@@ -27,7 +26,7 @@ pub fn initialize_registry(accounts: &[AccountInfo]) -> ProgramResult {
     }
     .invoke_signed(&[Registry::signer(&[bump]).as_slice().into()])?;
 
-    Registry::init(unsafe{registry.borrow_mut_data_unchecked()})?;
+    Registry::init(unsafe { registry.borrow_mut_data_unchecked() })?;
 
     Ok(())
 }

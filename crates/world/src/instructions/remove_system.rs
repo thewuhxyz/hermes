@@ -1,4 +1,4 @@
-use crate::state::world::WorldMut;
+use crate::{error::WorldError, state::world::WorldMut, utils::assert_program_account};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -11,12 +11,18 @@ pub fn remove_system(accounts: &[AccountInfo]) -> ProgramResult {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let mut world = unsafe { WorldMut::from_bytes(world_acct.borrow_mut_data_unchecked())? };
+    if !authority.is_signer() {
+        return Err(WorldError::InvalidAuthority.into());
+    }
+
+    assert_program_account(world_acct)?;
+
+    let mut world = WorldMut::from_account_info(world_acct)?;
 
     let authorities = world.authorities()?;
 
     if !authorities.contains(authority.key()) {
-        return Err(ProgramError::InvalidAccountData);
+        return Err(WorldError::InvalidAuthority.into());
     }
 
     let size = world.remove_system(system.key())?;

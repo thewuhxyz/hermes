@@ -15,7 +15,7 @@ pub fn add_entity(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let world = unsafe { WorldMut::from_bytes(world_acct.borrow_mut_data_unchecked())? };
+    let world = WorldMut::from_account_info(world_acct)?;
 
     let (_, bump) = Entity::pda(
         &world.world_metadata.id.to_be_bytes(),

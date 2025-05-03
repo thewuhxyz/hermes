@@ -1,3 +1,4 @@
+use crate::{error::WorldError, state::world::WorldRef, utils::init_execute_cpi_accounts};
 use core::mem::MaybeUninit;
 use pinocchio::{
     account_info::AccountInfo,
@@ -6,15 +7,21 @@ use pinocchio::{
     ProgramResult,
 };
 
-use crate::{state::world::WorldRef, utils::init_execute_cpi_accounts};
-
 pub fn apply_system(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
-    let [system, authority, instruction_sysvar_account, world, remaining @ ..] = accounts else {
+    let [system, authority, instruction_sysvar_account, world_acct, remaining @ ..] = accounts
+    else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let world_ref = WorldRef::from_bytes(unsafe {world.borrow_data_unchecked()})?;
-    world_ref.assert_account()?;
+    if !authority.is_signer() && authority.key() != &crate::ID {
+        return Err(WorldError::InvalidAuthority.into());
+    }
+
+    let world = WorldRef::from_account_info(world_acct)?;
+
+    if !world.permissionless && world.systems.binary_search(system.key()).is_err() {
+        return Err(WorldError::SystemNotApproved.into());
+    }
 
     const UNINIT_INFO: MaybeUninit<&AccountInfo> = MaybeUninit::uninit();
 

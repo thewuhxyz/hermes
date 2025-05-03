@@ -88,4 +88,8 @@ impl Transmutable for Entity {
 
 impl AnchorAccount for Entity {
     const DISCRIMINATOR: [u8; 8] = [46, 157, 161, 161, 254, 46, 79, 24];
+
+    fn discriminator(&self) -> [u8; 8] {
+        self.discriminator
+    }
 }

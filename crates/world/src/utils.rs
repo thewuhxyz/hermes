@@ -1,5 +1,7 @@
 use core::mem::MaybeUninit;
-use pinocchio::{account_info::AccountInfo, program_error::ProgramError};
+use pinocchio::{account_info::AccountInfo, program_error::ProgramError, ProgramResult};
+
+use crate::consts::DISCRIMATOR_LENGTH;
 
 #[allow(clippy::type_complexity)]
 pub fn init_execute_cpi_accounts<'a>(
@@ -41,4 +43,29 @@ pub fn init_execute_cpi_accounts<'a>(
     };
 
     Ok((components, separator_idx, remaining_accounts))
+}
+
+pub fn assert_program_account(account_info: &AccountInfo) -> ProgramResult {
+    if account_info.is_owned_by(&crate::ID) {
+        return Err(ProgramError::IllegalOwner);
+    }
+    Ok(())
+}
+
+pub fn assert_discriminator(account_info: &AccountInfo, discriminator: &[u8; 8]) -> ProgramResult {
+    let disc = unsafe { &account_info.borrow_data_unchecked()[..DISCRIMATOR_LENGTH] };
+
+    if disc != discriminator {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    Ok(())
+}
+
+pub fn assert_program_account_and_discriminator(
+    account_info: &AccountInfo,
+    discriminator: &[u8; 8],
+) -> ProgramResult {
+    assert_program_account(account_info)?;
+    assert_discriminator(account_info, discriminator)
 }

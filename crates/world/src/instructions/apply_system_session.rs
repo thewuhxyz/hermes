@@ -1,4 +1,4 @@
-use crate::utils::init_execute_cpi_accounts;
+use crate::{error::WorldError, state::world::WorldRef, utils::init_execute_cpi_accounts};
 use core::mem::MaybeUninit;
 use pinocchio::{
     account_info::AccountInfo,
@@ -8,11 +8,21 @@ use pinocchio::{
 };
 
 pub fn apply_system_session(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
-    let [system, authority, instruction_sysvar_account, _world, session_token, remaining @ ..] =
+    let [system, authority, instruction_sysvar_account, world_acct, session_token, remaining @ ..] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
+
+    if !authority.is_signer() && authority.key() != &crate::ID {
+        return Err(WorldError::InvalidAuthority.into());
+    }
+
+    let world = WorldRef::from_account_info(world_acct)?;
+
+    if !world.permissionless && world.systems.binary_search(system.key()).is_err() {
+        return Err(WorldError::SystemNotApproved.into());
+    }
 
     const UNINIT_INFO: MaybeUninit<&AccountInfo> = MaybeUninit::uninit();
 
@@ -34,7 +44,13 @@ pub fn apply_system_session(accounts: &[AccountInfo], data: &[u8]) -> ProgramRes
 
     let components_pair = &remaining[..sep_idx.unwrap_or(remaining.len())];
 
-    let (_, data) = return_data.as_slice().split_at(core::mem::size_of::<u32>());
+    let (result_len_bytes, data) = return_data.as_slice().split_at(core::mem::size_of::<u32>());
+
+    let result_len =  unsafe {(result_len_bytes.as_ptr() as *const u32).read_unaligned()};
+
+    if result_len as usize != components_pair.len().saturating_div(2) {
+        return Err(WorldError::InvalidSystemOutput.into())
+    }
 
     let mut cursor = 0;
 

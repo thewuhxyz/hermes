@@ -2,6 +2,7 @@
 #![allow(unexpected_cfgs)]
 
 mod consts;
+mod error;
 mod instructions;
 mod state;
 mod utils;
