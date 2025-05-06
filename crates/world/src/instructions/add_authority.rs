@@ -15,7 +15,7 @@ pub fn add_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let world_id = unsafe { (data.as_ptr() as *const u64).read_unaligned() };
+    let world_id = u64::from_le_bytes(unsafe { (data.as_ptr() as *const [u8; 8]).read() });
 
     // assert world pda
     if &World::pda(&world_id.to_be_bytes()).0 != world_acct.key() {
@@ -29,9 +29,7 @@ pub fn add_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     if authorities.is_empty()
         || (authorities.contains(authority.key()) && !authorities.contains(new_authority.key()))
     {
-        world.add_new_authority(new_authority.key())?;
-
-        let world_size = world.size()?;
+        let world_size = world.size()? + 32;
         let rent = Rent::get()?;
         let new_minimum_balance = rent.minimum_balance(world_size);
 
@@ -47,6 +45,8 @@ pub fn add_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         }
 
         world_acct.realloc(world_size, false)?;
+
+        world.add_new_authority(new_authority.key())?;
     }
 
     Ok(())

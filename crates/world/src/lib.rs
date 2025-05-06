@@ -16,6 +16,8 @@ use pinocchio::{
 
 pinocchio_pubkey::declare_id!("WorLD15A7CrDwLcLy4fRqtaTb9fbd8o8iqiEMUDse2n");
 
+pinocchio::nostd_panic_handler!();
+
 pinocchio::entrypoint!(process_instruction);
 
 pub fn process_instruction(

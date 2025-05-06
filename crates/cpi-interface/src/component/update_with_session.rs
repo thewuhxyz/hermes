@@ -22,6 +22,8 @@ pub struct UpdateWithSession<'a> {
 }
 
 impl UpdateWithSession<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = [221, 55, 212, 141, 57, 85, 61, 182];
+    
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])

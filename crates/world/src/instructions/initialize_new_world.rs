@@ -19,11 +19,11 @@ pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
 
     let reg = unsafe { Registry::load_mut_unchecked(registry.borrow_mut_data_unchecked())? };
 
-    if Registry::seeds() != *registry.key() {
+    if &Registry::pda().0 != registry.key() {
         return Err(ProgramError::InvalidSeeds);
     }
 
-    let (_, bump) = World::pda(&reg.worlds.to_le_bytes());
+    let (_, bump) = World::pda(&reg.worlds.to_be_bytes());
 
     let lamports_needed = Rent::get()?.minimum_balance(World::INIT_SIZE);
 
@@ -38,7 +38,7 @@ pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
         .as_slice()
         .into()])?;
 
-    WorldMut::init_new_world(unsafe { world.borrow_mut_data_unchecked() })?;
+    WorldMut::init_new_world(unsafe { world.borrow_mut_data_unchecked() }, reg.worlds)?;
 
     reg.worlds += 1;
 

@@ -6,6 +6,7 @@ use pinocchio::{
     ProgramResult,
 };
 
+
 pub struct Destroy<'a> {
     /// Authority
     pub authority: &'a AccountInfo,
@@ -26,6 +27,8 @@ pub struct Destroy<'a> {
 }
 
 impl Destroy<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = [157, 40, 96, 3, 135, 203, 143, 74];
+
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])
@@ -46,7 +49,7 @@ impl Destroy<'_> {
         let instruction = Instruction {
             program_id: self.component_program,
             accounts: &account_metas,
-            data: &[],
+            data: Self::DISCRIMINATOR.as_slice(),
         };
 
         invoke_signed(

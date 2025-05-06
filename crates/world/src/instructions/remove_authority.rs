@@ -1,4 +1,7 @@
-use crate::{error::WorldError, state::world::{World, WorldMut}};
+use crate::{
+    error::WorldError,
+    state::world::{World, WorldMut},
+};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -49,7 +52,9 @@ pub fn remove_authority(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult 
             }
         }
 
-        world_acct.realloc(world_size, false)
+        world_acct.realloc(world_size, false)?;
+
+        Ok(())
     } else {
         Err(WorldError::AuthorityNotFound.into())
     }

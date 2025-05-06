@@ -1,11 +1,7 @@
 use core::mem::MaybeUninit;
 
 use pinocchio::{
-    account_info::AccountInfo,
-    cpi::{slice_invoke_signed, MAX_CPI_ACCOUNTS},
-    instruction::{AccountMeta, Instruction, Signer},
-    pubkey::Pubkey,
-    ProgramResult,
+    account_info::AccountInfo, cpi::{slice_invoke_signed, MAX_CPI_ACCOUNTS}, instruction::{AccountMeta, Instruction, Signer}, msg, pubkey::Pubkey, ProgramResult
 };
 
 pub struct Execute<'a> {
@@ -21,6 +17,8 @@ pub struct Execute<'a> {
 }
 
 impl Execute<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = [75, 206, 62, 210, 52, 215, 104, 109];
+
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])
@@ -35,22 +33,28 @@ impl Execute<'_> {
 
         let mut len = 0;
 
+        msg!("here");
+        
         maybe_account_infos[len].write(self.authority);
         maybe_account_metas[len].write(AccountMeta::readonly_signer(self.authority.key()));
         len += 1;
-
+        msg!("here");
+        
         if !self.components.is_empty() {
             for i in 0..self.components.len() {
+                msg!("here");
                 maybe_account_infos[len].write(self.components[i]);
                 maybe_account_metas[len].write(AccountMeta::writable(self.components[i].key()));
                 len += 1;
             }
         }
-
+        msg!("here");
+        
         if !self.remaining_accounts.is_empty() {
             for i in 0..self.remaining_accounts.len() {
                 maybe_account_infos[len].write(self.remaining_accounts[i]);
-                maybe_account_metas[len].write(AccountMeta::readonly(self.remaining_accounts[i].key()));
+                maybe_account_metas[len]
+                    .write(AccountMeta::readonly(self.remaining_accounts[i].key()));
                 len += 1;
             }
         }

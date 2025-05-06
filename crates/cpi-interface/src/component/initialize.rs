@@ -6,6 +6,7 @@ use pinocchio::{
     ProgramResult,
 };
 
+
 pub struct Initialize<'a> {
     /// Payer
     pub payer: &'a AccountInfo,
@@ -24,6 +25,8 @@ pub struct Initialize<'a> {
 }
 
 impl Initialize<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = [175, 175, 109, 31, 13, 152, 155, 237];
+
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])
@@ -43,7 +46,7 @@ impl Initialize<'_> {
         let instruction = Instruction {
             program_id: self.component_program,
             accounts: &account_metas,
-            data: &[],
+            data: Self::DISCRIMINATOR.as_slice(),
         };
 
         invoke_signed(

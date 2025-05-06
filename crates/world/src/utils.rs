@@ -1,7 +1,6 @@
+use crate::consts::DISCRIMATOR_LENGTH;
 use core::mem::MaybeUninit;
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, ProgramResult};
-
-use crate::consts::DISCRIMATOR_LENGTH;
 
 #[allow(clippy::type_complexity)]
 pub fn init_execute_cpi_accounts<'a>(
@@ -17,7 +16,7 @@ pub fn init_execute_cpi_accounts<'a>(
         if separator_idx.is_some() {
             ctx_accounts[len].write(&remaining[i]);
             len += 1;
-        } else if i % 2 == 0 {
+        } else if (i + 1) % 2 == 0 {
             ctx_accounts[len].write(&remaining[i]);
             component_len += 1;
             len += 1;
@@ -46,7 +45,7 @@ pub fn init_execute_cpi_accounts<'a>(
 }
 
 pub fn assert_program_account(account_info: &AccountInfo) -> ProgramResult {
-    if account_info.is_owned_by(&crate::ID) {
+    if !account_info.is_owned_by(&crate::ID) {
         return Err(ProgramError::IllegalOwner);
     }
     Ok(())

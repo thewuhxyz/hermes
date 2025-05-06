@@ -6,6 +6,7 @@ use pinocchio::{
     ProgramResult,
 };
 
+
 pub struct Update<'a> {
     /// Component
     pub component: &'a AccountInfo,
@@ -20,6 +21,8 @@ pub struct Update<'a> {
 }
 
 impl Update<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = [219, 200, 88, 176, 158, 63, 253, 127];
+
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])

@@ -1,7 +1,4 @@
-use crate::state::{
-    entity::Entity,
-    world::{World, WorldMut},
-};
+use crate::state::{entity::Entity, transmutable::Transmutable, world::WorldMut};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -23,13 +20,13 @@ pub fn add_entity(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         data,
     )?;
 
-    let lamports_needed = Rent::get()?.minimum_balance(World::INIT_SIZE);
+    let lamports_needed = Rent::get()?.minimum_balance(Entity::LEN);
 
     CreateAccount {
         from: payer,
         to: entity_acct,
         lamports: lamports_needed,
-        space: World::INIT_SIZE as u64,
+        space: Entity::LEN as u64,
         owner: &crate::ID,
     }
     .invoke_signed(&[Entity::signer(
