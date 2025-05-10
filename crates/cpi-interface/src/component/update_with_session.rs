@@ -23,7 +23,7 @@ pub struct UpdateWithSession<'a> {
 
 impl UpdateWithSession<'_> {
     pub const DISCRIMINATOR: [u8; 8] = [221, 55, 212, 141, 57, 85, 61, 182];
-    
+
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])
@@ -38,10 +38,18 @@ impl UpdateWithSession<'_> {
             AccountMeta::readonly(self.session_token.key()),
         ];
 
+        const DISCRIMATOR_LENGTH: usize = 8;
+
+        let mut instruction_data = [0u8; 256 + DISCRIMATOR_LENGTH];
+
+        instruction_data[0..DISCRIMATOR_LENGTH].copy_from_slice(Self::DISCRIMINATOR.as_slice());
+        instruction_data[DISCRIMATOR_LENGTH..DISCRIMATOR_LENGTH + self.instruction_data.len()]
+            .copy_from_slice(self.instruction_data);
+
         let instruction = Instruction {
             program_id: self.component_program,
             accounts: &account_metas,
-            data: self.instruction_data,
+            data: &instruction_data[..DISCRIMATOR_LENGTH + self.instruction_data.len()],
         };
 
         invoke_signed(

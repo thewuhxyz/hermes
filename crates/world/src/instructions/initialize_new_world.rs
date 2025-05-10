@@ -38,7 +38,8 @@ pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
         .as_slice()
         .into()])?;
 
-    WorldMut::init_new_world(unsafe { world.borrow_mut_data_unchecked() }, reg.worlds)?;
+    let mut world = WorldMut::from_bytes(unsafe { world.borrow_mut_data_unchecked() })?;
+    world.init(reg.worlds)?;
 
     reg.worlds += 1;
 

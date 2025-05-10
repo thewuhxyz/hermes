@@ -31,7 +31,7 @@ pub fn process_instruction(
 
     let (instruction_bytes, data) = instruction_data.split_at(DISCRIMATOR_LENGTH);
 
-    let instruction = unsafe { (instruction_bytes.as_ptr() as *const u64).read_unaligned() };
+    let instruction = unsafe { (instruction_bytes.as_ptr() as *const u64).read() };
 
     match WorldInstruction::try_from(instruction)? {
         WorldInstruction::InitializeRegistry => initialize_registry(accounts),

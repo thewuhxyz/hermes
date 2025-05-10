@@ -48,6 +48,15 @@ impl Transmutable for WorldMetadata {
     const LEN: usize = core::mem::size_of::<WorldMetadata>();
 }
 
+impl WorldMetadata {
+    pub fn new(id: u64) -> Self {
+        Self {
+            id,
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for WorldMetadata {
     fn default() -> Self {
         Self {
@@ -139,8 +148,7 @@ impl<'a> WorldMut<'a> {
         let (world_metadata_bytes, world_data) = account_data.split_at_mut(WorldMetadata::LEN);
 
         let world_metadata = unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
-        *world_metadata = WorldMetadata::default();
-        world_metadata.id = id;
+        *world_metadata = WorldMetadata::new(id);
 
         let mut world = Self {
             world_data,
@@ -150,6 +158,12 @@ impl<'a> WorldMut<'a> {
         *world.is_permissionless()? = true;
 
         Ok(world)
+    }
+
+    pub fn init(&mut self, id: u64) -> Result<(), ProgramError> {
+        *self.world_metadata = WorldMetadata::new(id);
+        *self.is_permissionless()? = true;
+        Ok(())
     }
 
     pub fn add_new_authority(&mut self, authority: &Pubkey) -> Result<(), ProgramError> {

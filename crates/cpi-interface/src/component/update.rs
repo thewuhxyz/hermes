@@ -36,10 +36,18 @@ impl Update<'_> {
             AccountMeta::readonly(self.instruction_sysvar_account.key()),
         ];
 
+        const DISCRIMATOR_LENGTH: usize = 8;
+
+        let mut instruction_data = [0u8; 256 + DISCRIMATOR_LENGTH];
+
+        instruction_data[0..DISCRIMATOR_LENGTH].copy_from_slice(Self::DISCRIMINATOR.as_slice());
+        instruction_data[DISCRIMATOR_LENGTH..DISCRIMATOR_LENGTH + self.instruction_data.len()]
+            .copy_from_slice(self.instruction_data);
+
         let instruction = Instruction {
             program_id: self.component_program,
             accounts: &account_metas,
-            data: self.instruction_data,
+            data: &instruction_data[..DISCRIMATOR_LENGTH + self.instruction_data.len()],
         };
 
         invoke_signed(
