@@ -19,11 +19,10 @@ impl Entity {
         b"entity".as_ref()
     }
 
-    pub fn init(account_data: &mut[u8], id: u64) -> Result<&mut Self, ProgramError> {
-        let entity = unsafe {Self::load_mut_unchecked(account_data)?};
-        entity.discriminator = Self::DISCRIMINATOR;
-        entity.id = id;
-        Ok(entity)
+    pub fn init(&mut self, id: u64) -> Result<(), ProgramError> {
+        self.discriminator = Self::DISCRIMINATOR;
+        self.id = id;
+        Ok(())
     } 
 
     pub fn remaining_seeds<'a>(

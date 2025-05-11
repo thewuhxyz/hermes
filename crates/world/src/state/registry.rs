@@ -24,10 +24,9 @@ impl Registry {
         [Registry::seeds().as_ref().into(), bump.as_ref().into()]
     }
 
-    pub fn init(account_data: &mut[u8]) -> Result<&mut Self, ProgramError> {
-        let registry = unsafe {Self::load_mut_unchecked(account_data)?};
-        *registry = Registry::default(); 
-        Ok(registry)
+    pub fn init(&mut self) -> Result<(), ProgramError> {
+        *self = Registry::default(); 
+        Ok(())
     }
 }
 

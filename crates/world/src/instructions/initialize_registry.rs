@@ -1,3 +1,7 @@
+use crate::state::{
+    registry::Registry,
+    transmutable::{Transmutable, TransmutableMut},
+};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -5,8 +9,6 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
-
-use crate::state::{registry::Registry, transmutable::Transmutable};
 
 pub fn initialize_registry(accounts: &[AccountInfo]) -> ProgramResult {
     let [registry, payer, _system_program] = accounts else {
@@ -26,7 +28,7 @@ pub fn initialize_registry(accounts: &[AccountInfo]) -> ProgramResult {
     }
     .invoke_signed(&[Registry::signer(&[bump]).as_slice().into()])?;
 
-    Registry::init(unsafe { registry.borrow_mut_data_unchecked() })?;
+    let reg = unsafe { Registry::load_mut_unchecked(registry.borrow_mut_data_unchecked())? };
 
-    Ok(())
+    reg.init()
 }

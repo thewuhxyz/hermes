@@ -1,4 +1,8 @@
-use crate::state::{entity::Entity, transmutable::Transmutable, world::WorldMut};
+use crate::state::{
+    entity::Entity,
+    transmutable::{Transmutable, TransmutableMut},
+    world::WorldMut,
+};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -15,8 +19,8 @@ pub fn add_entity(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let world = WorldMut::from_account_info(world_acct)?;
 
     let (_, bump) = Entity::pda(
-        &world.world_metadata.id.to_be_bytes(),
-        &world.world_metadata.entities.to_be_bytes(),
+        &world.metadata.id.to_be_bytes(),
+        &world.metadata.entities.to_be_bytes(),
         data,
     )?;
 
@@ -30,20 +34,18 @@ pub fn add_entity(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         owner: &crate::ID,
     }
     .invoke_signed(&[Entity::signer(
-        &world.world_metadata.id.to_be_bytes(),
-        &world.world_metadata.entities.to_be_bytes(),
+        &world.metadata.id.to_be_bytes(),
+        &world.metadata.entities.to_be_bytes(),
         data,
         &[bump],
     )?
     .as_slice()
     .into()])?;
 
-    Entity::init(
-        unsafe { entity_acct.borrow_mut_data_unchecked() },
-        world.world_metadata.entities,
-    )?;
+    let entity = unsafe { Entity::load_mut_unchecked(entity_acct.borrow_mut_data_unchecked())? };
+    entity.init(world.metadata.entities)?;
 
-    world.world_metadata.entities += 1;
+    world.metadata.entities += 1;
 
     Ok(())
 }

@@ -19,7 +19,7 @@ pub fn apply_system(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
 
     let world = WorldRef::from_account_info(world_acct)?;
 
-    if !world.permissionless && world.systems.binary_search(system.key()).is_err() {
+    if !world.permissionless()? && world.systems.binary_search(system.key()).is_err() {
         return Err(WorldError::SystemNotApproved.into());
     }
 

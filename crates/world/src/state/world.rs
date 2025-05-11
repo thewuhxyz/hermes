@@ -69,10 +69,10 @@ impl Default for WorldMetadata {
 
 #[allow(dead_code)]
 pub struct WorldRef<'a> {
-    pub world_metadata: &'a WorldMetadata,
+    pub metadata: &'a WorldMetadata,
     pub authorities_len: u32,
     pub authorities: &'a [Pubkey],
-    pub permissionless: &'a bool,
+    pub permissionless: &'a u8,
     pub systems_len: u32,
     pub systems: &'a [Pubkey],
 }
@@ -86,7 +86,7 @@ impl<'a> WorldRef<'a> {
 
     pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, ProgramError> {
         let world = unsafe {
-            let world_metadata = WorldMetadata::load_unchecked(&bytes[..WorldMetadata::LEN])?;
+            let metadata = WorldMetadata::load_unchecked(&bytes[..WorldMetadata::LEN])?;
 
             let authorities_len_ptr =
                 bytes.as_ptr().add(WorldMetadata::LEN) as *const _ as *const u32;
@@ -95,7 +95,7 @@ impl<'a> WorldRef<'a> {
             let authorities_len = authorities_len_ptr.read();
             let authorities_ptr = authorities_len_ptr.add(1) as *const Pubkey;
 
-            let permissionless_ptr = authorities_ptr.add(authorities_len as usize) as *const bool;
+            let permissionless_ptr = authorities_ptr.add(authorities_len as usize) as *const u8;
 
             let systems_len_ptr = permissionless_ptr.add(1) as *const [u8; 4];
             let systems_len = u32::from_le_bytes(systems_len_ptr.read());
@@ -103,7 +103,7 @@ impl<'a> WorldRef<'a> {
             let systems_ptr = systems_len_ptr.add(1) as *const Pubkey;
 
             Self {
-                world_metadata,
+                metadata,
                 authorities: core::slice::from_raw_parts(authorities_ptr, authorities_len as usize),
                 authorities_len,
                 permissionless: &*permissionless_ptr,
@@ -117,11 +117,19 @@ impl<'a> WorldRef<'a> {
 
         Ok(world)
     }
+
+    pub fn permissionless(&self) -> Result<bool, ProgramError> {
+        match self.permissionless {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(ProgramError::InvalidAccountData),
+        }
+    }
 }
 
 pub struct WorldMut<'a> {
-    pub world_metadata: &'a mut WorldMetadata,
-    pub world_data: &'a mut [u8],
+    pub metadata: &'a mut WorldMetadata,
+    pub data: &'a mut [u8],
 }
 
 impl<'a> WorldMut<'a> {
@@ -133,41 +141,22 @@ impl<'a> WorldMut<'a> {
 
     pub fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, ProgramError> {
         let world = unsafe {
-            let (world_metadata_bytes, world_data) = bytes.split_at_mut(WorldMetadata::LEN);
-            let world_metadata = WorldMetadata::load_mut_unchecked(world_metadata_bytes)?;
-            Self {
-                world_metadata,
-                world_data,
-            }
+            let (metadata_bytes, data) = bytes.split_at_mut(WorldMetadata::LEN);
+            let metadata = WorldMetadata::load_mut_unchecked(metadata_bytes)?;
+            Self { metadata, data }
         };
-
-        Ok(world)
-    }
-
-    pub fn init_new_world(account_data: &'a mut [u8], id: u64) -> Result<Self, ProgramError> {
-        let (world_metadata_bytes, world_data) = account_data.split_at_mut(WorldMetadata::LEN);
-
-        let world_metadata = unsafe { WorldMetadata::load_mut_unchecked(world_metadata_bytes)? };
-        *world_metadata = WorldMetadata::new(id);
-
-        let mut world = Self {
-            world_data,
-            world_metadata,
-        };
-
-        *world.is_permissionless()? = true;
 
         Ok(world)
     }
 
     pub fn init(&mut self, id: u64) -> Result<(), ProgramError> {
-        *self.world_metadata = WorldMetadata::new(id);
+        *self.metadata = WorldMetadata::new(id);
         *self.is_permissionless()? = true;
         Ok(())
     }
 
     pub fn add_new_authority(&mut self, authority: &Pubkey) -> Result<(), ProgramError> {
-        let data_ptr = self.world_data as *mut _ as *mut u8;
+        let data_ptr = self.data as *mut _ as *mut u8;
         let offset = self.authority_size()?;
 
         unsafe {
@@ -184,7 +173,7 @@ impl<'a> WorldMut<'a> {
     }
 
     pub fn remove_authority(&mut self, index: usize) -> Result<(), ProgramError> {
-        self.world_data
+        self.data
             .copy_within(authorities_size(index + 1).., authorities_size(index));
 
         *self.authorities_len()? -= 1;
@@ -193,7 +182,7 @@ impl<'a> WorldMut<'a> {
     }
 
     pub fn authorities_len(&mut self) -> Result<&mut u32, ProgramError> {
-        Ok(unsafe { &mut *(self.world_data.as_mut_ptr() as *mut u32) })
+        Ok(unsafe { &mut *(self.data.as_mut_ptr() as *mut u32) })
     }
 
     pub fn permissionless_len(&mut self) -> Result<usize, ProgramError> {
@@ -201,7 +190,7 @@ impl<'a> WorldMut<'a> {
     }
 
     pub fn permissionless(&mut self) -> Result<&mut u8, ProgramError> {
-        let byte = &mut self.world_data[self.authority_size()?];
+        let byte = &mut self.data[self.authority_size()?];
         Ok(byte)
     }
 
@@ -221,23 +210,11 @@ impl<'a> WorldMut<'a> {
         Ok(authorities_size(authorities_len as usize))
     }
 
-    // fn authorities_mut(&mut self) -> Result<&mut [Pubkey], ProgramError> {
-    //     let authorities_len = *self.authorities_len()?;
-    //     let authorities = unsafe {
-    //         let authorities_ptr =
-    //             self.world_data
-    //                 .as_mut_ptr()
-    //                 .add(core::mem::size_of::<Pubkey>()) as *mut _ as *mut Pubkey;
-    //         core::slice::from_raw_parts_mut(authorities_ptr, authorities_len as usize)
-    //     };
-    //     Ok(authorities)
-    // }
-
     pub fn authorities(&mut self) -> Result<&[Pubkey], ProgramError> {
         let authorities_len = *self.authorities_len()?;
         let authorities = unsafe {
             let authorities_ptr =
-                self.world_data
+                self.data
                     .as_mut_ptr()
                     .add(core::mem::size_of::<u32>()) as *mut _ as *const Pubkey;
             core::slice::from_raw_parts(authorities_ptr, authorities_len as usize)
@@ -348,7 +325,7 @@ impl AnchorAccount for WorldRef<'_> {
     const DISCRIMINATOR: [u8; 8] = World::DISCRIMINATOR;
 
     fn discriminator(&self) -> [u8; 8] {
-        self.world_metadata.discriminator
+        self.metadata.discriminator
     }
 }
 
@@ -356,6 +333,6 @@ impl AnchorAccount for WorldMut<'_> {
     const DISCRIMINATOR: [u8; 8] = World::DISCRIMINATOR;
 
     fn discriminator(&self) -> [u8; 8] {
-        self.world_metadata.discriminator
+        self.metadata.discriminator
     }
 }

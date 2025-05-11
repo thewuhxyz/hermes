@@ -1,3 +1,8 @@
+use crate::state::{
+    registry::Registry,
+    transmutable::TransmutableMut,
+    world::{World, WorldMut},
+};
 use pinocchio::{
     account_info::AccountInfo,
     program_error::ProgramError,
@@ -5,12 +10,6 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
-
-use crate::state::{
-    registry::Registry,
-    transmutable::TransmutableMut,
-    world::{World, WorldMut},
-};
 
 pub fn initialize_new_world(accounts: &[AccountInfo]) -> ProgramResult {
     let [payer, world, registry, _system_program] = accounts else {
